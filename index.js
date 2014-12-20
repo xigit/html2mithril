@@ -72,14 +72,22 @@ function mithrilify(obj, postRender) {
                         delete el.attrs["class"];
                     }
                     var attrNames = Object.keys(el.attrs).sort()
+                    var isHref = false;
                     for (var j = 0, attrName; attrName = attrNames[j]; j++) {
                         if (attrName != "style") virtual += "[" + attrName + "='" + el.attrs[attrName].replace(/'/g, "\\'") + "']";
+                        if (attrName === "href") {
+                            isHref = true;
+                        }
                     }
                     virtual = '"' + virtual + '"';
 
                     var style = ""
                     if (el.attrs.style) {
                         virtual += ", {style: " + ("{\"" + el.attrs.style.replace(/:/g, "\": \"").replace(/;/g, "\", \"") + "}").replace(/, "}|"}/, "}") + "}"
+                    }
+
+                    if (isHref) {
+                        virtual += ", {config: m.route}";
                     }
 
                     if (el.children.length > 0) {
