@@ -8,10 +8,11 @@
 // Scripts used
 var through = require('through2');
 var gutil = require('gulp-util');
-// Cheerio is needed for jquery
-var cheerio = require('cheerio');
+
+var jsdom = require("jsdom").jsdom;
 
 var PluginError = gutil.PluginError;
+var path = require('path');
 
 // Consts
 const PLUGIN_NAME = 'mithrilify';
@@ -20,33 +21,32 @@ function mithrilify(obj, postRender) {
 
     // Creating a stream through which each file will pass
     var stream = through.obj(function(file, enc, callback) {
-
         var source = String(file.contents);
-        $ = cheerio.load('<div></div>');
+
+        var document = jsdom();
 
         var templateConverter = {};
         templateConverter.DOMFragment = function(markup) {
             if (markup.indexOf("<!doctype") > -1) return [new DOMParser().parseFromString(markup, "text/html").childNodes[1]]
-            //var container = window.document.createElement("div");
-            //container.insertAdjacentHTML("beforeend", markup);
-            var newDiv = $("div"); 
-            newDiv.html(markup);
-            //console.log($("div").children());
-            return newDiv.children();
+            var container = document.createElement("div");
+            container.innerHTML = markup;
+            return container.childNodes;
         }
         templateConverter.VirtualFragment = function recurse(domFragment) {
             var virtualFragment = [];
-
-                domFragment.each(function(){
-                    if(this.prev){
-                        if(this.prev.type == "text"){
-                            virtualFragment.push(this.prev.data);
-                        }
+            for (var i = 0, el; el = domFragment[i]; i++) {
+                if (el.nodeType == 3) {
+                    virtualFragment.push(el.nodeValue);
+                }
+                else if (el.nodeType == 1) {
+                    var attrs = {};
+                    for (var j = 0, attr; attr = el.attributes[j]; j++) {
+                        attrs[attr.name] = attr.value;
                     }
-                    var attrs = this.attribs;
-                    virtualFragment.push({tag: this.name.toLowerCase(), attrs: attrs, children: recurse($(this).children())});
-                })
 
+                    virtualFragment.push({tag: el.nodeName.toLowerCase(), attrs: attrs, children: recurse(el.childNodes)});
+                }
+            }
             return virtualFragment;
         }
         templateConverter.Template = function recurse() {
@@ -107,10 +107,14 @@ function mithrilify(obj, postRender) {
         } else {
             var config = "";
         }
-        if(!obj){
-            var obj = "obj"; 
+        if(obj){
+            var objName = obj;
+        }else {
+            // get objectname from filename
+            var filename = path.basename(file.path);
+            var objName = filename.substring(0, filename.length - 5);
         }
-        var viewjs =  obj + '.view =  function(ctrl){ return m("div",'+config+' ['+output+']) }';
+        var viewjs =  objName + '.view =  function(ctrl){ return m("div",'+config+' ['+output+']) }';
 
         var outputBuffer = new Buffer(viewjs);
         if (file.isNull()) {

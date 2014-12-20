@@ -9,7 +9,7 @@
   "dependencies": {
       "through2" : "",
       "gulp-util" : "",
-      "cheerio" : ">=0.17"
+      "jsdom": "^1.5.0"
     },
   "repository": {
     "type": "git",
